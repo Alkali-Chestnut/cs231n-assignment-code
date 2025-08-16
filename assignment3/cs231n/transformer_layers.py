@@ -38,6 +38,11 @@ class PositionalEncoding(nn.Module):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+        col= torch.arange(0,max_len).reshape((-1,1))
+        row= torch.pow( 10000, -torch.arange(0, embed_dim, 2)/embed_dim )
+        pe[0, :, 0::2]= torch.sin(col * row)
+        pe[0, :, 1::2]= torch.cos(col * row)
+        
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -70,6 +75,9 @@ class PositionalEncoding(nn.Module):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+        output= x + self.pe[0, 0:S, :]
+        output= self.dropout(output)
+        
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -165,6 +173,26 @@ class MultiHeadAttention(nn.Module):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+        H= self.n_head
+        D= self.head_dim
+
+        Q= self.query(query).reshape((N,S,H,D)).transpose(1,2) # N,H,S,D
+        K= self.key(key).reshape((N,T,H,D)).transpose(1,2) # N,H,T,D
+        V= self.value(value).reshape((N,T,H,D)).transpose(1,2) # N,H,T,D
+
+        Y= torch.matmul(Q, K.transpose(2, 3))/math.sqrt(D) # N,H,S,T
+        if attn_mask is not None:
+            Y= Y.masked_fill(attn_mask==0, float('-inf'))
+
+        Y= torch.softmax(Y, dim=3)
+        Y= self.attn_drop(Y)
+
+        Y= torch.matmul(Y, V) # N,H,S,D
+        Y= Y.transpose(1, 2).reshape((N,S,E))
+
+        output= self.proj(Y)
+        
+        
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****

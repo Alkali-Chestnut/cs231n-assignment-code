@@ -30,12 +30,18 @@ class CaptioningRNN:
         Inputs:
         - word_to_idx: A dictionary giving the vocabulary. It contains V entries,
           and maps each string to a unique integer in the range [0, V).
+        
         - input_dim: Dimension D of input image feature vectors.
+        
         - wordvec_dim: Dimension W of word vectors.
+        
         - hidden_dim: Dimension H for the hidden state of the RNN.
+        
         - cell_type: What type of RNN to use; either 'rnn' or 'lstm'.
+        
         - dtype: numpy datatype to use; use float32 for training and float64 for
           numeric gradient checking.
+        
         """
         if cell_type not in {"rnn", "lstm"}:
             raise ValueError('Invalid cell_type "%s"' % cell_type)
@@ -148,6 +154,23 @@ class CaptioningRNN:
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+        h_fea, cache_fea= affine_forward(features, W_proj, b_proj)
+        ca_in_vec, cache_embed= word_embedding_forward(captions_in, W_embed)
+        if self.cell_type == "rnn":
+            y_rnn, cache_rnn= rnn_forward(ca_in_vec, h_fea, Wx, Wh, b)
+        elif self.cell_type == "lstm":
+            y_rnn, cache_rnn= lstm_forward(ca_in_vec, h_fea, Wx, Wh, b)
+        scores, cache_scores= temporal_affine_forward(y_rnn, W_vocab, b_vocab)
+        loss, dout= temporal_softmax_loss(scores, captions_out, mask, verbose=False)
+
+        dout, grads['W_vocab'], grads['b_vocab']= temporal_affine_backward(dout, cache_scores)
+        if self.cell_type == "rnn":
+            dca_in_vec, dh_fea, grads['Wx'], grads['Wh'], grads['b']= rnn_backward(dout, cache_rnn)
+        elif self.cell_type == "lstm":
+            dca_in_vec, dh_fea, grads['Wx'], grads['Wh'], grads['b']= lstm_backward(dout, cache_rnn)
+        grads['W_embed']= word_embedding_backward(dca_in_vec, cache_embed)
+        dfeatures, grads['W_proj'], grads['b_proj']= affine_backward(dh_fea, cache_fea)
+        
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -216,6 +239,23 @@ class CaptioningRNN:
         ###########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+        h0,_= affine_forward(features, W_proj, b_proj)
+        x00= np.ones((N, 1), dtype=np.int32)*self._start
+        prev_c= np.zeros(h0.shape)
+        for i in range(max_length):
+            x0= W_embed[x00].squeeze()
+            if self.cell_type == "rnn":
+                next_h, _= rnn_step_forward(x0, h0, Wx, Wh, b)
+            elif self.cell_type == "lstm":
+                next_h, next_c, _= lstm_step_forward(x0, h0, prev_c, Wx, Wh, b)
+                prev_c= next_c
+            scores, _= affine_forward(next_h, W_vocab, b_vocab)
+            ans= np.argmax(scores, axis=1)
+            captions[:,i]= ans
+            x00= ans
+            h0= next_h
+            
+        
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****

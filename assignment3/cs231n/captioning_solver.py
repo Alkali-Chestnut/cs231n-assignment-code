@@ -51,7 +51,7 @@ class CaptioningSolver(object):
       training-time loss and gradients, with the following inputs and outputs:
 
       Inputs:
-      - features: Array giving a minibatch of features for images, of shape (N, D
+      - features: Array giving a minibatch of features for images, of shape (N, D)
       - captions: Array of captions for those images, of shape (N, T) where
         each element is in the range (0, V].
 
@@ -125,7 +125,7 @@ class CaptioningSolver(object):
         self.train_acc_history = []
         self.val_acc_history = []
 
-        # Make a deep copy of the optim_config for each parameter
+        # Make a deep copy of the optim_config for each parameter /每个参数一份更新规则参数
         self.optim_configs = {}
         for p in self.model.params:
             d = {k: v for k, v in self.optim_config.items()}
@@ -188,7 +188,7 @@ class CaptioningSolver(object):
         for i in range(num_batches):
             start = i * batch_size
             end = (i + 1) * batch_size
-            scores = self.model.loss(X[start:end])
+            scores = self.model.loss(X[start:end]) #验证时才调用?
             y_pred.append(np.argmax(scores, axis=1))
         y_pred = np.hstack(y_pred)
         acc = np.mean(y_pred == y)
